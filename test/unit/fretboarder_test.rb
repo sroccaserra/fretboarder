@@ -46,8 +46,4 @@ class TestFretboarder < Test::Unit::TestCase
         assert_equal 'f', Fretboard.note(1, 1)
         assert_equal '^f', Fretboard.note(1, 2)
     end
-
-    def test_staff
-
-    end
 end
