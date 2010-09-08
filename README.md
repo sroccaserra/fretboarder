@@ -1,7 +1,7 @@
 Starting this script displays a text representation of a guitar fretboard.
-An X marks a random location on the fretboard, and you have a few seconds
-(set with --period option) to find the corresponding note before the answer
-shows, together with the next random X.
+An `X` marks a random location on the fretboard, and you have a few seconds
+(set with `--period` option) to find the corresponding note before the answer
+shows, together with the next random `X`.
 
 
 Usage
@@ -35,7 +35,7 @@ Well, it's an ASCII screenshot...
     -----||-----|-----|-----|-----|-----|-----|-----|-----|-----|-----|-----|-----|
                          .           .           .           .                 :
 
-Here the B is the answer of the previous question, X is the current question, and
+Here the `B` is the answer to the previous question, `X` is the current question, and
 by default you have three seconds before the answer shows, together with the next question.
 
 
