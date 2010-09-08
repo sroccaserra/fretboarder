@@ -5,13 +5,13 @@ shows, together with the next random X.
 
 
 Usage
-=====
+-----
 
-    lib/fretboarder.rb [options]
+    > lib/fretboarder.rb [options]
 
 
 Options
-=======
+-------
 
     -p, --period [TIME]              Period in seconds between each question (default: 3)
     -s, --start [FRET]               Starting fret for questions (default: 0)
@@ -21,7 +21,7 @@ Options
 
 
 Screenshot
-==========
+----------
 
 Well, it's an ASCII screenshot...
 
@@ -36,10 +36,10 @@ Well, it's an ASCII screenshot...
                          .           .           .           .                 :
 
 Here the B is the answer of the previous question, X is the current question, and
-by default you have three seconds before the answer shows with the following question.
+by default you have three seconds before the answer shows, together with the next question.
 
 
 Note
-====
+----
 
 See [abc notation](http://abcnotation.com) about note notations.
