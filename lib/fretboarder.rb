@@ -5,6 +5,7 @@
 #
 
 require 'optparse'
+require 'curses'
 
 
 $NOTES = [["e", "f", "^f", "g", "^g", "a", "^a", "b", "c'", "^c'", "d'", "^d'", "e'"],
@@ -28,7 +29,8 @@ $settings = {
     :period => 3,
     :start => 0,
     :end => $NB_FRETS,
-    :use_flats => false
+    :use_flats => false,
+    :display_map => false
 }
 
 class Fret
@@ -94,32 +96,59 @@ def random_fret options
     rand(options[:end] - options[:start] + 1) + options[:start]
 end
 
-if __FILE__ == $0
+def note_for_character character
+    use_sharps = !$settings[:use_flats]
+    b2 = use_sharps ? '^c' : '_d'
+    table = {
+        ?a => 'c',
+        ?w => b2,
+        ?s => 'd',
+        ?e => use_sharps ? '^d' : '_e',
+        ?d => 'e',
+        ?f => 'f',
+        ?t => use_sharps ? '^f' : '_g',
+        ?g => 'g',
+        ?y => use_sharps ? '^g' : '_a',
+        ?h => 'a',
+        ?u => use_sharps ? '^a' : '_b',
+        ?j => 'b',
+        # and for AZERTY users:
+        ?q => 'c',
+        ?z => b2
+    }
+    table[character]
+end
 
-    option_parser = OptionParser.new do |opts|
-        opts.banner = """Usage: #{__FILE__} [options]
-Note: see http://abcnotation.com about note notations.
 
-"""
-        opts.on("-p", "--period [TIME]", "Period in seconds between each question (default: #{$settings[:period]})") do |p|
-            $settings[:period] = Float(p)
+def quizz
+    stats = {
+        :start => Time.new,
+        :success => 0,
+        :slow => 0,
+        :failure => 0,
+        :nbQuestions => 1
+    }
+    question = nil
+    questionStart = Time.new
+
+    red = '1;31'
+    green = '0;32'
+    yellow = '0;33'
+    begin
+        Curses.init_screen
+        Curses.cbreak
+        Curses.stdscr.keypad true
+        answer = nil
+        while ?q != answer && 27 != answer do
+            answer = Curses.getch
+            Curses.addstr "a: #{answer}\n"
         end
-        opts.on("-s", "--start [FRET]", "Starting fret for questions (default: #{$settings[:start]})") do |s|
-            $settings[:start] = Integer(s)
-        end
-        opts.on("-e", "--end [FRET]", "Ending fret for questions (default: #{$settings[:end]})") do |e|
-            $settings[:end] = Integer(e)
-        end
-        opts.on("-b", "--use-flats", "Use flats (default: use sharps)") do |b|
-            $settings[:use_flats] = b
-        end
-        opts.on_tail("-h", "--help", "Show this message") do
-            puts opts
-            exit
-        end
+    ensure
+        Curses.close_screen
     end
-    option_parser.parse!(ARGV)
+end
 
+def auto_quizz
     nbQuestions = 1
     question = nil
 
@@ -146,5 +175,56 @@ Note: see http://abcnotation.com about note notations.
         puts "#{clearScreenSequence}\nQuestion #{nbQuestions}:\n\n#{fretboard_string}\n#{Fretboard.marks}"
         sleep($settings[:period])
         nbQuestions = nbQuestions + 1
+    end
+end
+
+if __FILE__ == $0
+
+    option_parser = OptionParser.new do |opts|
+        opts.banner = """Usage: #{__FILE__} [options]
+Note: see http://abcnotation.com about note notations.
+
+"""
+        opts.on("-p", "--period [TIME]", "Period in seconds between each question (default: #{$settings[:period]})") do |p|
+            $settings[:period] = Float(p)
+        end
+        opts.on("-s", "--start [FRET]", "Starting fret for questions (default: #{$settings[:start]})") do |s|
+            $settings[:start] = Integer(s)
+        end
+        opts.on("-e", "--end [FRET]", "Ending fret for questions (default: #{$settings[:end]})") do |e|
+            $settings[:end] = Integer(e)
+        end
+        opts.on("-b", "--use-flats", "Use flats (default: use sharps)") do |b|
+            $settings[:use_flats] = b
+        end
+        opts.on("-m", "--display-map", "Shows a fretboard map and exits") do |m|
+            $settings[:display_map] = m
+        end
+        opts.on("-a", "--auto", "In this mode, as soon as the time is up, the answer shows up with another question.") do |a|
+            $settings[:auto] = a
+        end
+
+        opts.on_tail("-h", "--help", "Show this message and exits") do
+            puts opts
+            exit
+        end
+    end
+    option_parser.parse!(ARGV)
+
+    if $settings[:display_map]
+        help_fretboard_data = {}
+        1.upto $NB_STRINGS do |stringNumber|
+            0.upto $NB_FRETS do |fretNumber|
+                help_fretboard_data[[stringNumber, fretNumber]] = Fret.new(Fretboard.note(stringNumber, fretNumber))
+            end
+        end
+        puts "\nFretboard map:\n\n#{Fretboard.new(help_fretboard_data).toString}\n#{Fretboard.marks}"
+        exit 0
+    end
+
+    if $settings[:auto]
+        auto_quizz
+    else
+        quizz
     end
 end

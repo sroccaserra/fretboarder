@@ -46,4 +46,11 @@ class TestFretboarder < Test::Unit::TestCase
         assert_equal 'f', Fretboard.note(1, 1)
         assert_equal '^f', Fretboard.note(1, 2)
     end
+
+    def test_character_to_note_association
+        assert_equal 'c', note_for_character(?q)
+        assert_equal 'd', note_for_character(?s)
+        assert_equal 'e', note_for_character(?d)
+        assert_equal 'f', note_for_character(?f)
+    end
 end
