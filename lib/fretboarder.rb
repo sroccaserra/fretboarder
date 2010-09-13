@@ -5,9 +5,7 @@
 #
 
 require 'optparse'
-require 'rubygems'
 require 'ncurses'
-
 
 $NOTES = [["e", "f", "^f", "g", "^g", "a", "^a", "b", "c'", "^c'", "d'", "^d'", "e'"],
           ["B", "c", "^c", "d", "^d", "e", "f", "^f", "g", "^g", "a", "^a", "b"],
@@ -183,8 +181,8 @@ def random_string
     rand($NB_STRINGS) + 1
 end
 
-def random_fret options
-    rand(options[:end] - options[:start] + 1) + options[:start]
+def random_fret
+    rand($settings[:end] - $settings[:start] + 1) + $settings[:start]
 end
 
 $COLOR = {
@@ -214,7 +212,7 @@ def quizz
         window.mvaddstr 1, 0, "Question #{stats[:nbQuestions]}:"
         fretboard = Fretboard.new
         old_question = question
-        question = FretQuestion.new random_string, (random_fret $settings)
+        question = FretQuestion.new random_string, random_fret
         fretboard.ask! question
         if old_question
             result = fretboard.answer! answer, old_question
@@ -262,9 +260,7 @@ def auto_quizz
                 fretboard.answer! nil, previous_question
             end
 
-            stringNumber = random_string
-            fretNumber = random_fret $settings
-            question = FretQuestion.new stringNumber, fretNumber
+            question = FretQuestion.new random_string, random_fret
             fretboard.ask! question
 
             window.clear
@@ -276,6 +272,23 @@ def auto_quizz
         end
         sleep(0.01)
     end
+end
+
+def display_map
+    window = Ncurses.stdscr
+    fretboard = Fretboard.new
+    $NOTES.each_index do |i|
+        stringNumber = i + 1
+        $NOTES[i].each_index do |fretNumber|
+            fretboard.answer! nil, FretQuestion.new(stringNumber, fretNumber)
+        end
+    end
+    window.clear
+    window.mvaddstr 1, 0, "Fretboard map:"
+    fretboard.draw 2, window
+    window.mvaddstr 11, 0, "Press any key to quit."
+    window.refresh
+    Ncurses.getch
 end
 
 if __FILE__ == $0
@@ -300,7 +313,7 @@ Note: see http://abcnotation.com about note notations.
         opts.on("-m", "--display-map", "Shows a fretboard map and exits") do |m|
             $settings[:display_map] = m
         end
-        opts.on("-a", "--auto", "In this mode, as soon as the time is up, the answer shows up with another question.") do |a|
+        opts.on("-a", "--auto", "In this mode inputs are ignored: the answer periodically shows up with another question.") do |a|
             $settings[:auto] = a
         end
 
@@ -310,17 +323,6 @@ Note: see http://abcnotation.com about note notations.
         end
     end
     option_parser.parse!(ARGV)
-
-    if $settings[:display_map]
-        help_fretboard_data = {}
-        1.upto $NB_STRINGS do |stringNumber|
-            0.upto $NB_FRETS do |fretNumber|
-                help_fretboard_data[[stringNumber, fretNumber]] = Fret.new(Fretboard.note(stringNumber, fretNumber))
-            end
-        end
-        puts "\nFretboard map:\n\n#{Fretboard.new(help_fretboard_data).toString}\n#{Fretboard.marks}"
-        exit 0
-    end
 
     begin
         Ncurses.initscr
@@ -350,7 +352,9 @@ Note: see http://abcnotation.com about note notations.
         #        Ncurses.timeout 0
         Ncurses.raw
         #        Ncurses.stdscr.keypad true
-        if $settings[:auto]
+        if $settings[:display_map]
+            display_map
+        elsif $settings[:auto]
             auto_quizz
         else
             quizz
