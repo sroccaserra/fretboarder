@@ -5,7 +5,8 @@
 #
 
 require 'optparse'
-require 'curses'
+require 'rubygems'
+require 'ncurses'
 
 
 $NOTES = [["e", "f", "^f", "g", "^g", "a", "^a", "b", "c'", "^c'", "d'", "^d'", "e'"],
@@ -33,58 +34,83 @@ $settings = {
     :display_map => false
 }
 
-class Fret
-    def initialize note = nil, color = nil
-        @note = note || ''
-        @color = color
+class FretQuestion
+    attr_reader :stringNumber, :fretNumber
+    def initialize stringNumber, fretNumber
+        @stringNumber = stringNumber
+        @fretNumber = fretNumber
     end
-    def toString
-        fret = "-----"
-        match_data = @note.match(/[a-z]/i)
-        firstLetterPosition = match_data ? match_data.begin(0) : 0
-        startIndex = fret.size - 3 - firstLetterPosition
-        endIndex = startIndex + @note.size - 1
-        text = @note
-        if @color then
-            text = "\e[#{@color}m#{@note}\e[0m"
-        end
-        fret[startIndex..endIndex] = text
-        fret
+end
+
+class KeyboardAnswer
+    def initialize char
+        @noteName = note_for_character char
+    end
+
+    def noteName
+        @noteName
+    end
+
+    def isSlow?
+        false
+    end
+
+    def note_for_character character
+        use_sharps = !$settings[:use_flats]
+        b2 = use_sharps ? '^c' : '_d'
+        table = {
+            ?a => 'c',
+            ?w => b2,
+            ?s => 'd',
+            ?e => use_sharps ? '^d' : '_e',
+            ?d => 'e',
+            ?f => 'f',
+            ?t => use_sharps ? '^f' : '_g',
+            ?g => 'g',
+            ?y => use_sharps ? '^g' : '_a',
+            ?h => 'a',
+            ?u => use_sharps ? '^a' : '_b',
+            ?j => 'b',
+            # and for AZERTY users:
+            ?q => 'c',
+            ?z => b2
+        }
+        table[character]
+    end
+end
+
+class SlowKeyboardAnswer < KeyboardAnswer
+    def isSlow?
+        true
     end
 end
 
 class Fretboard
-    def self.note(stringNumber, fretNumber)
-        $settings[:use_flats] ? $FLAT_NOTES[stringNumber-1][fretNumber] : $NOTES[stringNumber-1][fretNumber]
-    end
-    def self.marks
-        "                     .           .           .           .                 :"
+    def initialize
     end
 
-    def initialize data
-        @data = data
+    def answerTo question
+        notes = $settings[:use_flats] ? $FLAT_NOTES : $NOTES
+        notes[question.stringNumber-1][question.fretNumber]
     end
 
-    def stringFrets stringNumber
-        stringData = @data.select {|k, v|
-            k[0] == stringNumber
-        }
-        stringData.inject({}){|h, data|h.merge({data[0][1] => data[1]})}
+    def isCorrect anAnswer, aQuestion
+        (answerTo aQuestion).match anAnswer.noteName
     end
 
-    def string stringNumber
-        fretData = stringFrets stringNumber
-        frets = Array.new($NB_FRETS + 1) do |index|
-            fretData[index] || Fret.new()
-        end
-        separators = ["||"] + Array.new($NB_FRETS, '|')
-        fretStrings = frets.collect {|fret| fret.toString}
-        (fretStrings.zip separators).flatten.join
+    def correct anAnswer, aQuestion
+        @oldQuestion = aQuestion
     end
 
-    def toString
-        strings = Array.new($NB_STRINGS) {|i| string(i+1)}
-        strings.join "\n"
+    def ask aQuestion
+        @question = aQuestion
+    end
+
+    def displayData
+        data = {}
+        stringNumber = @oldQuestion.stringNumber
+        fretNumber = @oldQuestion.fretNumber
+        data[[stringNumber, fretNumber]] = answerTo(@oldQuestion)
     end
 end
 
@@ -96,28 +122,6 @@ def random_fret options
     rand(options[:end] - options[:start] + 1) + options[:start]
 end
 
-def note_for_character character
-    use_sharps = !$settings[:use_flats]
-    b2 = use_sharps ? '^c' : '_d'
-    table = {
-        ?a => 'c',
-        ?w => b2,
-        ?s => 'd',
-        ?e => use_sharps ? '^d' : '_e',
-        ?d => 'e',
-        ?f => 'f',
-        ?t => use_sharps ? '^f' : '_g',
-        ?g => 'g',
-        ?y => use_sharps ? '^g' : '_a',
-        ?h => 'a',
-        ?u => use_sharps ? '^a' : '_b',
-        ?j => 'b',
-        # and for AZERTY users:
-        ?q => 'c',
-        ?z => b2
-    }
-    table[character]
-end
 
 
 def quizz
@@ -131,20 +135,15 @@ def quizz
     question = nil
     questionStart = Time.new
 
-    red = '1;31'
-    green = '0;32'
-    yellow = '0;33'
-    begin
-        Curses.init_screen
-        Curses.cbreak
-        Curses.stdscr.keypad true
-        answer = nil
-        while ?q != answer && 27 != answer do
-            answer = Curses.getch
-            Curses.addstr "a: #{answer}\n"
-        end
-    ensure
-        Curses.close_screen
+    red = 3
+    green = 1
+    yellow = 2
+    answer = nil
+    while ?q != answer && 27 != answer do
+        fretboardData = {}
+        previous_question = question
+        answer = Ncurses.getch
+        Ncurses.addstr "a: #{answer}\n"
     end
 end
 
@@ -152,7 +151,6 @@ def auto_quizz
     nbQuestions = 1
     question = nil
 
-    clearScreenSequence = "\e[2J\e[f"
     while true do
         fretboardData = {}
         previous_question = question
@@ -172,7 +170,9 @@ def auto_quizz
         fretboardData[[stringNumber, fretNumber]] = Fret.new('X', '5;1;32;44')
         fretboard = Fretboard.new fretboardData
         fretboard_string = fretboard.toString
-        puts "#{clearScreenSequence}\nQuestion #{nbQuestions}:\n\n#{fretboard_string}\n#{Fretboard.marks}"
+        Ncurses.clear
+        Ncurses.addstr "\nQuestion #{nbQuestions}:\n\n#{fretboard_string}\n#{Fretboard.marks}"
+        Ncurses.refresh
         sleep($settings[:period])
         nbQuestions = nbQuestions + 1
     end
@@ -222,9 +222,34 @@ Note: see http://abcnotation.com about note notations.
         exit 0
     end
 
-    if $settings[:auto]
-        auto_quizz
-    else
-        quizz
+    begin
+        Ncurses.initscr
+        if (Ncurses.has_colors?)
+            bg = Ncurses::COLOR_BLACK
+            Ncurses.start_color
+            if (Ncurses.respond_to?("use_default_colors"))
+                if (Ncurses.use_default_colors == Ncurses::OK)
+                    bg = -1
+                end
+            end
+            Ncurses.init_pair(1, Ncurses::COLOR_GREEN, bg);
+            Ncurses.init_pair(2, Ncurses::COLOR_YELLOW, bg);
+            Ncurses.init_pair(3, Ncurses::COLOR_RED, bg);
+        end
+        Ncurses.nl
+        Ncurses.noecho
+        Ncurses.curs_set 0
+        #        Ncurses.stdscr.nodelay true
+        #        Ncurses.timeout 0
+        Ncurses.cbreak
+        #        Ncurses.stdscr.keypad true
+        if $settings[:auto]
+            auto_quizz
+        else
+            quizz
+        end
+    ensure
+        Ncurses.curs_set 1
+        Ncurses.endwin
     end
 end
