@@ -43,7 +43,7 @@ class FretQuestion
 end
 
 class KeyboardAnswer
-    def initialize char
+    def initialize char = nil
         @noteName = note_for_character char
     end
 
@@ -53,6 +53,10 @@ class KeyboardAnswer
 
     def isSlow?
         false
+    end
+
+    def isValid?
+        return nil != @noteName && !mustQuit?
     end
 
     def note_for_character character
@@ -73,9 +77,15 @@ class KeyboardAnswer
             ?j => 'b',
             # and for AZERTY users:
             ?q => 'c',
-            ?z => b2
+            ?z => b2,
+            ?\e => :quit,
+            ?\C-c => :quit
         }
         table[character]
+    end
+
+    def mustQuit?
+        return :quit == @noteName
     end
 end
 
@@ -86,7 +96,11 @@ class SlowKeyboardAnswer < KeyboardAnswer
 end
 
 class Fretboard
+    attr_reader :displayData
+
     def initialize
+        @displayData = {}
+        @fretWidth = 5
     end
 
     def answerTo question
@@ -94,23 +108,74 @@ class Fretboard
         notes[question.stringNumber-1][question.fretNumber]
     end
 
-    def isCorrect anAnswer, aQuestion
-        (answerTo aQuestion).match anAnswer.noteName
+    def isCorrect? anAnswer, aQuestion
+        if !anAnswer.isValid?
+            return false
+        end
+        regexp = Regexp.new('^' + Regexp.quote(anAnswer.noteName), Regexp::IGNORECASE)
+        regexp.match(answerTo aQuestion)
     end
 
-    def correct anAnswer, aQuestion
-        @oldQuestion = aQuestion
+    def answer! anAnswer, aQuestion
+        result = true
+        hasAnswer = nil != anAnswer
+        stringNumber = aQuestion.stringNumber
+        fretNumber = aQuestion.fretNumber
+        colorName = (hasAnswer && anAnswer.isSlow?) ? :yellow : :green
+        if hasAnswer && !isCorrect?(anAnswer, aQuestion)
+            colorName = :red
+            result = false
+        end
+        @displayData[[stringNumber, fretNumber]] = [answerTo(aQuestion), colorName]
+        result
     end
 
-    def ask aQuestion
-        @question = aQuestion
+    def ask! aQuestion
+        stringNumber = aQuestion.stringNumber
+        fretNumber = aQuestion.fretNumber
+        @displayData[[stringNumber, fretNumber]] = ['X', :blue]
     end
 
-    def displayData
-        data = {}
-        stringNumber = @oldQuestion.stringNumber
-        fretNumber = @oldQuestion.fretNumber
-        data[[stringNumber, fretNumber]] = answerTo(@oldQuestion)
+    def fretStart fretNumber
+        start = 1
+        if 0 != fretNumber
+            nutWidth = 1
+            start = start + nutWidth + fretNumber*(@fretWidth+1)
+        end
+        start
+    end
+
+    def textStart text, fretNumber
+        start = fretStart fretNumber
+        offset = 0
+        firstLeterMatchData = text.match /[a-z]/i
+        if firstLeterMatchData
+            offset = -(firstLeterMatchData.begin 0)
+        end
+        start + @fretWidth / 2 + offset
+    end
+
+    def draw y, window
+        offset = y
+        $NOTES.each_index do |i|
+            stringNumber = i + 1
+            y = stringNumber + offset
+            $NOTES[i].each_index do |fretNumber|
+                x = (fretStart fretNumber)
+                window.mvaddstr y, x, '-----|'
+                textData = @displayData[[stringNumber, fretNumber]]
+                if textData
+                    text = textData[0]
+                    x = textStart text, fretNumber
+                    color = $COLOR[textData[1]]
+                    window.color_set(color, nil)
+                    window.mvaddstr y, x, text
+                    window.color_set($COLOR[:origin], nil)
+                end
+            end
+        end
+        window.mvaddstr($NB_STRINGS + offset+1, 0,
+                        "                      .           .           .           .                 :")
     end
 end
 
@@ -122,7 +187,13 @@ def random_fret options
     rand(options[:end] - options[:start] + 1) + options[:start]
 end
 
-
+$COLOR = {
+    :origin => 0,
+    :blue => 1,
+    :green => 2,
+    :yellow => 3,
+    :red => 4,
+}
 
 def quizz
     stats = {
@@ -132,49 +203,78 @@ def quizz
         :failure => 0,
         :nbQuestions => 1
     }
+
     question = nil
     questionStart = Time.new
 
-    red = 3
-    green = 1
-    yellow = 2
-    answer = nil
-    while ?q != answer && 27 != answer do
-        fretboardData = {}
-        previous_question = question
-        answer = Ncurses.getch
-        Ncurses.addstr "a: #{answer}\n"
+    answer = KeyboardAnswer.new
+    window = Ncurses.stdscr
+    while :quit != answer.noteName do
+        window.clear
+        window.mvaddstr 1, 0, "Question #{stats[:nbQuestions]}:"
+        fretboard = Fretboard.new
+        old_question = question
+        question = FretQuestion.new random_string, (random_fret $settings)
+        fretboard.ask! question
+        if old_question
+            result = fretboard.answer! answer, old_question
+            if result
+                stats[:success] += 1
+            else
+                stats[:failure] +=1
+            end
+        end
+        fretboard.draw 2, window
+        stats[:nbQuestions] = stats[:nbQuestions] + 1
+        start = Time.new
+        window.mvaddstr 11, 0, "#{stats[:success]} success, #{stats[:slow]} slow, #{stats[:failure]} errors."
+        window.mvaddstr 13, 0, "A, S, D, F,... to answer (corresponds to C, D, E, F,...), and ESC to quit."
+        window.refresh
+
+        answerChar = Ncurses.getch
+        isAnswerSlow = Time.new - start > $settings[:period]
+        if isAnswerSlow
+            answer = SlowKeyboardAnswer.new answerChar
+            stats[:slow] += 1
+        else
+            answer = KeyboardAnswer.new answerChar
+        end
     end
+    stats
 end
 
 def auto_quizz
     nbQuestions = 1
     question = nil
 
-    while true do
-        fretboardData = {}
-        previous_question = question
-        if previous_question then
-            stringNumber = previous_question[:string]
-            fretNumber = previous_question[:fret]
-            fretboardData[[stringNumber, fretNumber]] = Fret.new(Fretboard.note(stringNumber, fretNumber))
+    window = Ncurses.stdscr
+    Ncurses.stdscr.nodelay true
+    Ncurses.timeout 0
+    key = nil
+    start = Time.new - $settings[:period]
+
+    while ?\e != key && ?\C-c != key do
+        key = Ncurses.getch
+        if Time.new - start >= $settings[:period]
+            fretboard = Fretboard.new
+            previous_question = question
+            if previous_question then
+                fretboard.answer! nil, previous_question
+            end
+
+            stringNumber = random_string
+            fretNumber = random_fret $settings
+            question = FretQuestion.new stringNumber, fretNumber
+            fretboard.ask! question
+
+            window.clear
+            window.mvaddstr 1, 0, "Question #{nbQuestions}:"
+            fretboard.draw 2, window
+            window.refresh
+            start = Time.new
+            nbQuestions = nbQuestions + 1
         end
-
-        stringNumber = random_string
-        fretNumber = random_fret $settings
-        question = {
-            :string => stringNumber,
-            :fret => fretNumber
-        }
-
-        fretboardData[[stringNumber, fretNumber]] = Fret.new('X', '5;1;32;44')
-        fretboard = Fretboard.new fretboardData
-        fretboard_string = fretboard.toString
-        Ncurses.clear
-        Ncurses.addstr "\nQuestion #{nbQuestions}:\n\n#{fretboard_string}\n#{Fretboard.marks}"
-        Ncurses.refresh
-        sleep($settings[:period])
-        nbQuestions = nbQuestions + 1
+        sleep(0.01)
     end
 end
 
@@ -224,24 +324,31 @@ Note: see http://abcnotation.com about note notations.
 
     begin
         Ncurses.initscr
-        if (Ncurses.has_colors?)
-            bg = Ncurses::COLOR_BLACK
-            Ncurses.start_color
-            if (Ncurses.respond_to?("use_default_colors"))
-                if (Ncurses.use_default_colors == Ncurses::OK)
-                    bg = -1
-                end
-            end
-            Ncurses.init_pair(1, Ncurses::COLOR_GREEN, bg);
-            Ncurses.init_pair(2, Ncurses::COLOR_YELLOW, bg);
-            Ncurses.init_pair(3, Ncurses::COLOR_RED, bg);
-        end
+        Ncurses.start_color
+        bg = Ncurses::COLOR_BLACK
+        Ncurses.init_pair($COLOR[:blue], Ncurses::COLOR_CYAN, bg)
+        Ncurses.init_pair($COLOR[:green], Ncurses::COLOR_GREEN, bg)
+        Ncurses.init_pair($COLOR[:yellow], Ncurses::COLOR_YELLOW, bg)
+        Ncurses.init_pair($COLOR[:red], Ncurses::COLOR_RED, bg)
+
+        # if (Ncurses.has_colors?)
+        #     bg = Ncurses::COLOR_BLACK
+        #     Ncurses.start_color
+        #     if (Ncurses.respond_to?("use_default_colors"))
+        #         if (Ncurses.use_default_colors == Ncurses::OK)
+        #             bg = -1
+        #         end
+        #     end
+        #     Ncurses.init_pair(1, Ncurses::COLOR_GREEN, bg);
+        #     Ncurses.init_pair(2, Ncurses::COLOR_YELLOW, bg);
+        #     Ncurses.init_pair(3, Ncurses::COLOR_RED, bg);
+        # end
         Ncurses.nl
         Ncurses.noecho
         Ncurses.curs_set 0
         #        Ncurses.stdscr.nodelay true
         #        Ncurses.timeout 0
-        Ncurses.cbreak
+        Ncurses.raw
         #        Ncurses.stdscr.keypad true
         if $settings[:auto]
             auto_quizz
