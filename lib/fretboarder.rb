@@ -160,7 +160,8 @@ class Fretboard
             y = stringNumber + offset
             $NOTES[i].each_index do |fretNumber|
                 x = (fretStart fretNumber)
-                window.mvaddstr y, x, '-----|'
+                emptyFret = fretNumber == 0 ? '-----||' : '-----|'
+                window.mvaddstr y, x, emptyFret
                 textData = @displayData[[stringNumber, fretNumber]]
                 if textData
                     text = textData[0]
