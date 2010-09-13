@@ -27,7 +27,7 @@ just start the script:
 
     > lib/fretboarder.rb [options]
 
-Else, you can either add `require 'rubygems'` in the script, or start it as 
+Else, you can either add `require 'rubygems'` in the script, or start it as:
 
     > RUBYOPT=-rubygems lib/fretboarder.rb [options]
 
