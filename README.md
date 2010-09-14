@@ -15,21 +15,20 @@ If you give a wrong answer, the correct answer will show up in red.
 Requirements
 ------------
 
-Fretboarder uses ncurses, you can install it with:
+Fretboarder requires ncurses Ruby bindings. You can install them with:
 
     > gem install ncurses
 
 Usage
 -----
 
-If you have the `RUBYOPT` environment variable set with `-rubygems`, or if you allready installed ncurses outside gem,
-just start the script:
+If you have the `RUBYOPT` environment variable set with `-rubygems`, or if you allready installed ncurses Ruby bindings outside gem, just start the script:
 
     > lib/fretboarder.rb [options]
 
-Else, you can either add `require 'rubygems'` in the script, or start it as:
+Else, you can start it as:
 
-    > RUBYOPT=-rubygems lib/fretboarder.rb [options]
+    > ruby -rubygems lib/fretboarder.rb [options]
 
 Options
 -------
@@ -50,7 +49,7 @@ Screenshot
 Well, it's an ASCII screenshot...
 
     Question 2:
-    
+
     -----||-----|-----|-----|-----|-----|-----|-----|-----|-----|-----|-----|-----|
     -----||-----|-----|-----|-----|-----|-----|-----|-----|-----|-----|-----|-----|
     -----||-----|-----|-----|-----|-----|-----|-----|-----|-----|-----|-----|-----|
