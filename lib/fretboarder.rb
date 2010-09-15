@@ -207,8 +207,6 @@ def quizz
     }
 
     question = nil
-    questionStart = Time.new
-
     answer = KeyboardAnswer.new
     window = Ncurses.stdscr
     while :quit != answer.noteName do
