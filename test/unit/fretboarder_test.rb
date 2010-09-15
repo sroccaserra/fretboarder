@@ -11,7 +11,7 @@ require 'fretboarder'
 
 # answer = KeyboardAnswer.new key
 
-# fretboard.answer! answer, old_question
+# fretboard.gradeAnswer! answer, old_question
 # fretboard.ask! new_question
 # fretboard.draw # -> Ncurses
 
@@ -27,9 +27,9 @@ class TestFretboarder < Test::Unit::TestCase
         assert_equal 'c', c.noteName
         d = KeyboardAnswer.new ?s
         assert_equal 'd', d.noteName
-        assert !d.isSlow?
+        assert_equal :green, d.colorName
         slowAnswer = SlowKeyboardAnswer.new ?d
-        assert slowAnswer.isSlow?
+        assert_equal :yellow, slowAnswer.colorName
     end
 
     def test_fretboard_questions
@@ -66,12 +66,20 @@ class TestFretboarder < Test::Unit::TestCase
         slow = SlowKeyboardAnswer.new ?d
         wrong = KeyboardAnswer.new ?f
 
-        fretboard.answer! right, old_question
+        fretboard.gradeAnswer! right, old_question
         assert_equal({[6, 0] => ["E,", :green]}, fretboard.displayData)
-        fretboard.answer! slow, old_question
+        fretboard.gradeAnswer! slow, old_question
         assert_equal({[6, 0] => ["E,", :yellow]}, fretboard.displayData)
-        fretboard.answer! wrong, old_question
+        fretboard.gradeAnswer! wrong, old_question
         assert_equal({[6, 0] => ["E,", :red]}, fretboard.displayData)
+    end
+
+    def test_fretboard_give_answer
+        fretboard = Fretboard.new
+
+        question = FretQuestion.new 6, 0
+        fretboard.giveAnswerTo! question
+        assert_equal({[6, 0] => ["E,", :green]}, fretboard.displayData)
     end
 
     def test_fret_coords

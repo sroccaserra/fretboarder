@@ -49,8 +49,8 @@ class KeyboardAnswer
         @noteName
     end
 
-    def isSlow?
-        false
+    def colorName
+        :green
     end
 
     def isValid?
@@ -88,8 +88,8 @@ class KeyboardAnswer
 end
 
 class SlowKeyboardAnswer < KeyboardAnswer
-    def isSlow?
-        true
+    def colorName
+        :yellow
     end
 end
 
@@ -114,17 +114,20 @@ class Fretboard
         regexp.match(answerTo aQuestion)
     end
 
-    def answer! anAnswer, aQuestion
-        result = true
-        hasAnswer = nil != anAnswer
+    def giveAnswerTo! aQuestion, colorName=:green
         stringNumber = aQuestion.stringNumber
         fretNumber = aQuestion.fretNumber
-        colorName = (hasAnswer && anAnswer.isSlow?) ? :yellow : :green
-        if hasAnswer && !isCorrect?(anAnswer, aQuestion)
+        @displayData[[stringNumber, fretNumber]] = [answerTo(aQuestion), colorName]
+    end
+
+    def gradeAnswer! anAnswer, aQuestion
+        result = true
+        colorName = anAnswer.colorName
+        if !isCorrect?(anAnswer, aQuestion)
             colorName = :red
             result = false
         end
-        @displayData[[stringNumber, fretNumber]] = [answerTo(aQuestion), colorName]
+        giveAnswerTo! aQuestion, colorName
         result
     end
 
@@ -216,15 +219,15 @@ def quizz
         question = FretQuestion.new random_string, random_fret
         fretboard.ask! question
         if old_question
-            result = fretboard.answer! answer, old_question
+            result = fretboard.gradeAnswer! answer, old_question
             if result
                 stats[:success] += 1
             else
-                stats[:failure] +=1
+                stats[:failure] += 1
             end
         end
         fretboard.draw 2, window
-        stats[:nbQuestions] = stats[:nbQuestions] + 1
+        stats[:nbQuestions] += 1
         start = Time.new
         window.mvaddstr 11, 0, "#{stats[:success]} success, #{stats[:slow]} slow, #{stats[:failure]} errors."
         window.mvaddstr 13, 0, "A, S, D, F,... to answer (corresponds to C, D, E, F,...), and ESC to quit."
@@ -258,7 +261,7 @@ def auto_quizz
             fretboard = Fretboard.new
             previous_question = question
             if previous_question then
-                fretboard.answer! nil, previous_question
+                fretboard.giveAnswerTo! previous_question
             end
 
             question = FretQuestion.new random_string, random_fret
@@ -285,7 +288,7 @@ def display_map
             note = fretboard.answerTo question
             isNatural = /^[a-z]/i.match note
             if isNatural
-                fretboard.answer! nil, question
+                fretboard.giveAnswerTo! question, :blue
             end
         end
     end
