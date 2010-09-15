@@ -281,7 +281,12 @@ def display_map
     $NOTES.each_index do |i|
         stringNumber = i + 1
         $NOTES[i].each_index do |fretNumber|
-            fretboard.answer! nil, FretQuestion.new(stringNumber, fretNumber)
+            question = FretQuestion.new(stringNumber, fretNumber)
+            note = fretboard.answerTo question
+            isNatural = /^[a-z]/i.match note
+            if isNatural
+                fretboard.answer! nil, question
+            end
         end
     end
     window.clear
