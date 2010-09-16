@@ -6,15 +6,6 @@
 require 'test/unit'
 require 'fretboarder'
 
-# old_question = new_question
-# new_question = FretQuestion.new 1, 12
-
-# answer = KeyboardAnswer.new key
-
-# fretboard.gradeAnswer! answer, old_question
-# fretboard.ask! new_question
-# fretboard.draw # -> Ncurses
-
 class TestFretboarder < Test::Unit::TestCase
     def setup
         @use_flats = false

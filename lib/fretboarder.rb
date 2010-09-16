@@ -226,7 +226,6 @@ def quizz settings
         fretboard.ask! question
         if old_question
             result = fretboard.gradeAnswer! answer, old_question
-
             if result
                 stats[:success] += 1
             else
