@@ -73,6 +73,10 @@ end
 class Fretboard
     attr_reader :displayData
 
+    def self.build settings
+        settings.use_flats ? FretboardWithFlats.new : Fretboard.new
+    end
+
     def self.notes
         [["e", "f", "^f", "g", "^g", "a", "^a", "b", "c'", "^c'", "d'", "^d'", "e'"],
          ["B", "c", "^c", "d", "^d", "e", "f", "^f", "g", "^g", "a", "^a", "b"],
@@ -201,10 +205,6 @@ def random_fret min, max
     rand(max - min + 1) + min
 end
 
-def build_fretboard settings
-    settings.use_flats ? FretboardWithFlats.new : Fretboard.new
-end
-
 def quizz settings
     stats = {
         :start => Time.new,
@@ -220,7 +220,7 @@ def quizz settings
     while :quit != answer.noteName do
         window.clear
         window.mvaddstr 1, 0, "Question #{stats[:nbQuestions]}:"
-        fretboard = build_fretboard settings
+        fretboard = Fretboard.build settings
         old_question = question
         question = FretQuestion.new fretboard.randomString, random_fret(settings.start, settings.end)
         fretboard.ask! question
@@ -270,7 +270,7 @@ def auto_quizz settings
     while ?\e != key && ?\C-c != key do
         key = Ncurses.getch
         if Time.new - start >= settings.period
-            fretboard = build_fretboard settings
+            fretboard = Fretboard.build settings
             previous_question = question
             if previous_question then
                 fretboard.giveAnswerTo! previous_question
@@ -292,7 +292,7 @@ end
 
 def display_map settings
     window = Ncurses.stdscr
-    fretboard = build_fretboard settings
+    fretboard = Fretboard.build settings
     fretboard.notes.each_index do |i|
         stringNumber = i + 1
         fretboard.notes[i].each_index do |fretNumber|
