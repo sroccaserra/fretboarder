@@ -22,7 +22,6 @@ $FLAT_NOTES = [["e", "f", "_g", "g", "_a", "a", "_b", "b", "c'", "_d'", "d'", "_
                ["A,", "_B,", "B", "C", "_D", "D", "_E", "E", "F", "_G", "G", "_A", "A"],
                ["E,", "F,", "_G,", "G,", "_A,", "A,", "_B,", "B,", "C", "_D", "D", "_E", "E"]]
 
-$NB_STRINGS = $NOTES.size
 $NB_FRETS = $NOTES[0].size - 1
 
 class FretQuestion
@@ -95,12 +94,23 @@ class Fretboard
         @fretWidth = 5
     end
 
-    def showFlats?
-        false
+    def notes
+        $NOTES
+    end
+
+    def nbStrings
+        notes.size
+    end
+
+    def randomString
+        rand(nbStrings) + 1
+    end
+
+    def nbFrets
+        $NB_FRETS
     end
 
     def answerTo question
-        notes = showFlats? ? $FLAT_NOTES : $NOTES
         notes[question.stringNumber-1][question.fretNumber]
     end
 
@@ -174,19 +184,15 @@ class Fretboard
                 end
             end
         end
-        window.mvaddstr($NB_STRINGS + offset+1, 0,
+        window.mvaddstr(nbStrings + offset+1, 0,
                         "                      .           .           .           .                 :")
     end
 end
 
 class FretboardWithFlats < Fretboard
-    def showFlats?
-        return true
+    def notes
+        $FLAT_NOTES
     end
-end
-
-def random_string
-    rand($NB_STRINGS) + 1
 end
 
 def random_fret min, max
@@ -214,7 +220,7 @@ def quizz settings
         window.mvaddstr 1, 0, "Question #{stats[:nbQuestions]}:"
         fretboard = build_fretboard settings
         old_question = question
-        question = FretQuestion.new random_string, random_fret(settings.start, settings.end)
+        question = FretQuestion.new fretboard.randomString, random_fret(settings.start, settings.end)
         fretboard.ask! question
         if old_question
             result = fretboard.gradeAnswer! answer, old_question
@@ -268,7 +274,7 @@ def auto_quizz settings
                 fretboard.giveAnswerTo! previous_question
             end
 
-            question = FretQuestion.new random_string, random_fret(settings.start, settings.end)
+            question = FretQuestion.new fretboard.randomString, random_fret(settings.start, settings.end)
             fretboard.ask! question
 
             window.clear
@@ -380,10 +386,8 @@ Note: see http://abcnotation.com about note notations.
         Ncurses.nl
         Ncurses.noecho
         Ncurses.curs_set 0
-        #        Ncurses.stdscr.nodelay true
-        #        Ncurses.timeout 0
+        Ncurses.stdscr.keypad true
         Ncurses.raw
-        #        Ncurses.stdscr.keypad true
         if settings.display_map
             display_map settings
         elsif settings.auto

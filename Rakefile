@@ -9,5 +9,8 @@ task :pull do
 end
 
 task :bundle do
-    `git bundle create ~/Dropbox/Temp/fretboarder.bundle last-pull..HEAD`
+    hostname = `hostname`.strip
+    username = `whoami`.strip
+    cmd = "git bundle create ~/Dropbox/Temp/fretboarder_#{username}@#{hostname}.bundle last-pull..HEAD"
+    sh cmd
 end
