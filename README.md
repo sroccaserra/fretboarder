@@ -24,11 +24,11 @@ Usage
 
 If you have the `RUBYOPT` environment variable set with `-rubygems`, or if you allready installed ncurses Ruby bindings outside gem, just start the script:
 
-    > lib/fretboarder.rb [options]
+    > src/fretboarder.rb [options]
 
 Else, you can start it as:
 
-    > ruby -rubygems lib/fretboarder.rb [options]
+    > ruby -rubygems src/fretboarder.rb [options]
 
 Options
 -------
