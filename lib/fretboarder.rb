@@ -20,7 +20,7 @@ $FLAT_NOTES = [["e", "f", "_g", "g", "_a", "a", "_b", "b", "c'", "_d'", "d'", "_
                ["G", "_A", "A", "_B", "B", "c", "_d", "d", "_e", "e", "f", "_g", "g"],
                ["D", "_E", "E", "F", "_G", "G", "_A", "A", "_B", "B", "c", "_d", "d"],
                ["A,", "_B,", "B", "C", "_D", "D", "_E", "E", "F", "_G", "G", "_A", "A"],
-               ["E,", "F,", "_G,", "G,", "_B,", "A,", "_B,", "B,", "C", "_D", "D", "_E", "E"]]
+               ["E,", "F,", "_G,", "G,", "_A,", "A,", "_B,", "B,", "C", "_D", "D", "_E", "E"]]
 
 $NB_STRINGS = $NOTES.size
 $NB_FRETS = $NOTES[0].size - 1
@@ -34,8 +34,8 @@ class FretQuestion
 end
 
 class KeyboardAnswer
-    def initialize char
-        @noteName = char ? note_for_character(char) : :invalid
+    def initialize char, use_flats
+        @noteName = char ? note_for_character(char, use_flats) : :invalid
     end
 
     def noteName
@@ -50,8 +50,8 @@ class KeyboardAnswer
         return :invalid != @noteName
     end
 
-    def note_for_character character
-        use_sharps = !$settings.use_flats
+    def note_for_character character, use_flats
+        use_sharps = !use_flats
         b2 = use_sharps ? '^c' : '_d'
         table = {
             ?a => 'c',
@@ -95,8 +95,12 @@ class Fretboard
         @fretWidth = 5
     end
 
+    def showFlats?
+        false
+    end
+
     def answerTo question
-        notes = $settings.use_flats ? $FLAT_NOTES : $NOTES
+        notes = showFlats? ? $FLAT_NOTES : $NOTES
         notes[question.stringNumber-1][question.fretNumber]
     end
 
@@ -150,7 +154,7 @@ class Fretboard
         start + @fretWidth / 2 + offset
     end
 
-    def draw y, window
+    def draw y, window, colorIds
         offset = y
         $NOTES.each_index do |i|
             stringNumber = i + 1
@@ -163,15 +167,21 @@ class Fretboard
                 if textData
                     text = textData[0]
                     x = textStart text, fretNumber
-                    color = $COLOR[textData[1]]
+                    color = colorIds[textData[1]]
                     window.color_set(color, nil)
                     window.mvaddstr y, x, text
-                    window.color_set($COLOR[:origin], nil)
+                    window.color_set(colorIds[:origin], nil)
                 end
             end
         end
         window.mvaddstr($NB_STRINGS + offset+1, 0,
                         "                      .           .           .           .                 :")
+    end
+end
+
+class FretboardWithFlats < Fretboard
+    def showFlats?
+        return true
     end
 end
 
@@ -183,13 +193,9 @@ def random_fret min, max
     rand(max - min + 1) + min
 end
 
-$COLOR = {
-    :origin => 0,
-    :blue => 1,
-    :green => 2,
-    :yellow => 3,
-    :red => 4,
-}
+def build_fretboard settings
+    settings.use_flats ? FretboardWithFlats.new : Fretboard.new
+end
 
 def quizz settings
     stats = {
@@ -201,12 +207,12 @@ def quizz settings
     }
 
     question = nil
-    answer = KeyboardAnswer.new :none
+    answer = KeyboardAnswer.new :none, settings.use_flats
     window = Ncurses.stdscr
     while :quit != answer.noteName do
         window.clear
         window.mvaddstr 1, 0, "Question #{stats[:nbQuestions]}:"
-        fretboard = Fretboard.new
+        fretboard = build_fretboard settings
         old_question = question
         question = FretQuestion.new random_string, random_fret(settings.start, settings.end)
         fretboard.ask! question
@@ -218,7 +224,7 @@ def quizz settings
                 stats[:failure] += 1
             end
         end
-        fretboard.draw 2, window
+        fretboard.draw 2, window, settings.colorIds
         stats[:nbQuestions] += 1
         start = Time.new
         window.mvaddstr 11, 0, "#{stats[:success]} success, #{stats[:slow]} slow, #{stats[:failure]} errors."
@@ -234,10 +240,10 @@ Note: QSDFGHJ and WE TYU for AZERTY users."""
         answerChar = Ncurses.getch
         isAnswerSlow = Time.new - start > settings.period
         if isAnswerSlow
-            answer = SlowKeyboardAnswer.new answerChar
+            answer = SlowKeyboardAnswer.new answerChar, settings.use_flats
             stats[:slow] += 1
         else
-            answer = KeyboardAnswer.new answerChar
+            answer = KeyboardAnswer.new answerChar, settings.use_flats
         end
     end
     stats
@@ -256,7 +262,7 @@ def auto_quizz settings
     while ?\e != key && ?\C-c != key do
         key = Ncurses.getch
         if Time.new - start >= settings.period
-            fretboard = Fretboard.new
+            fretboard = build_fretboard settings
             previous_question = question
             if previous_question then
                 fretboard.giveAnswerTo! previous_question
@@ -267,7 +273,7 @@ def auto_quizz settings
 
             window.clear
             window.mvaddstr 1, 0, "Question #{nbQuestions}:"
-            fretboard.draw 2, window
+            fretboard.draw 2, window, settings.colorIds
             window.refresh
             start = Time.new
             nbQuestions = nbQuestions + 1
@@ -276,9 +282,9 @@ def auto_quizz settings
     end
 end
 
-def display_map
+def display_map settings
     window = Ncurses.stdscr
-    fretboard = Fretboard.new
+    fretboard = build_fretboard settings
     $NOTES.each_index do |i|
         stringNumber = i + 1
         $NOTES[i].each_index do |fretNumber|
@@ -292,13 +298,14 @@ def display_map
     end
     window.clear
     window.mvaddstr 1, 0, "Fretboard map:"
-    fretboard.draw 2, window
+    fretboard.draw 2, window, settings.colorIds
     window.mvaddstr 11, 0, "Press any key to quit."
     window.refresh
     Ncurses.getch
 end
 
-def default_settings
+if __FILE__ == $0
+    default_settings =
     {
         :period => 3,
         :start => 0,
@@ -306,33 +313,30 @@ def default_settings
         :use_flats => false,
         :display_map => false
     }
-end
+    settings = OpenStruct.new default_settings
 
-$settings = OpenStruct.new default_settings
-
-if __FILE__ == $0
     option_parser = OptionParser.new do |opts|
         opts.banner = """Usage: #{__FILE__} [options]
 Note: see http://abcnotation.com about note notations.
 
 """
-        opts.on("-p", "--period [TIME]", "Period in seconds between each question (default: #{$settings.period})") do |p|
-            $settings.period = Float(p)
+        opts.on("-p", "--period [TIME]", "Period in seconds between each question (default: #{settings.period})") do |p|
+            settings.period = Float(p)
         end
-        opts.on("-s", "--start [FRET]", "Starting fret for questions (default: #{$settings.start})") do |s|
-            $settings.start = Integer(s)
+        opts.on("-s", "--start [FRET]", "Starting fret for questions (default: #{settings.start})") do |s|
+            settings.start = Integer(s)
         end
-        opts.on("-e", "--end [FRET]", "Ending fret for questions (default: #{$settings.end})") do |e|
-            $settings.end = Integer(e)
+        opts.on("-e", "--end [FRET]", "Ending fret for questions (default: #{settings.end})") do |e|
+            settings.end = Integer(e)
         end
         opts.on("-b", "--use-flats", "Use flats (default: use sharps)") do |b|
-            $settings.use_flats = b
+            settings.use_flats = b
         end
         opts.on("-m", "--display-map", "Shows a fretboard map and exits") do |m|
-            $settings.display_map = m
+            settings.display_map = m
         end
         opts.on("-a", "--auto", "In this mode inputs are ignored: the answer periodically shows up with another question.") do |a|
-            $settings.auto = a
+            settings.auto = a
         end
 
         opts.on_tail("-h", "--help", "Show this message and exits") do
@@ -345,11 +349,21 @@ Note: see http://abcnotation.com about note notations.
     begin
         Ncurses.initscr
         Ncurses.start_color
+
+        colorIds = {
+            :origin => 0,
+            :blue => 1,
+            :green => 2,
+            :yellow => 3,
+            :red => 4,
+        }
         bg = Ncurses::COLOR_BLACK
-        Ncurses.init_pair($COLOR[:blue], Ncurses::COLOR_CYAN, bg)
-        Ncurses.init_pair($COLOR[:green], Ncurses::COLOR_GREEN, bg)
-        Ncurses.init_pair($COLOR[:yellow], Ncurses::COLOR_YELLOW, bg)
-        Ncurses.init_pair($COLOR[:red], Ncurses::COLOR_RED, bg)
+        Ncurses.init_pair(colorIds[:blue], Ncurses::COLOR_CYAN, bg)
+        Ncurses.init_pair(colorIds[:green], Ncurses::COLOR_GREEN, bg)
+        Ncurses.init_pair(colorIds[:yellow], Ncurses::COLOR_YELLOW, bg)
+        Ncurses.init_pair(colorIds[:red], Ncurses::COLOR_RED, bg)
+
+        settings.colorIds = colorIds
 
         # if (Ncurses.has_colors?)
         #     bg = Ncurses::COLOR_BLACK
@@ -370,12 +384,12 @@ Note: see http://abcnotation.com about note notations.
         #        Ncurses.timeout 0
         Ncurses.raw
         #        Ncurses.stdscr.keypad true
-        if $settings.display_map
-            display_map
-        elsif $settings.auto
-            auto_quizz $settings
+        if settings.display_map
+            display_map settings
+        elsif settings.auto
+            auto_quizz settings
         else
-            quizz $settings
+            quizz settings
         end
     ensure
         Ncurses.curs_set 1

@@ -16,6 +16,10 @@ require 'fretboarder'
 # fretboard.draw # -> Ncurses
 
 class TestFretboarder < Test::Unit::TestCase
+    def setup
+        @use_flats = false
+    end
+
     def test_fret_question
         question = FretQuestion.new 1, 12
         assert_equal 1, question.stringNumber
@@ -23,20 +27,20 @@ class TestFretboarder < Test::Unit::TestCase
     end
 
     def test_keyboard_answer
-        c = KeyboardAnswer.new ?q
+        c = KeyboardAnswer.new ?q, @use_flats
         assert_equal 'c', c.noteName
-        d = KeyboardAnswer.new ?s
+        d = KeyboardAnswer.new ?s, @use_flats
         assert_equal 'd', d.noteName
         assert_equal :green, d.colorName
-        slowAnswer = SlowKeyboardAnswer.new ?d
+        slowAnswer = SlowKeyboardAnswer.new ?d, @use_flats
         assert_equal :yellow, slowAnswer.colorName
     end
 
     def test_fretboard_questions
         fretboard = Fretboard.new
         question = FretQuestion.new 1, 12
-        goodAnswer = KeyboardAnswer.new ?d
-        wrongAnswer = KeyboardAnswer.new ?g
+        goodAnswer = KeyboardAnswer.new ?d, @use_flats
+        wrongAnswer = KeyboardAnswer.new ?g, @use_flats
 
         assert_equal "e'", fretboard.answerTo(question)
         assert fretboard.isCorrect?(goodAnswer, question)
@@ -46,13 +50,23 @@ class TestFretboarder < Test::Unit::TestCase
         assert_equal "E,", fretboard.answerTo(otherQuestion)
         assert fretboard.isCorrect?(goodAnswer, otherQuestion)
 
-        assert !fretboard.isCorrect?(KeyboardAnswer.new(?f), FretQuestion.new(1, 2))
+        assert !fretboard.isCorrect?(KeyboardAnswer.new(?f, @use_flats), FretQuestion.new(1, 2))
+    end
+
+    def test_fretboard_sharps_or_flats
+        fretboard = Fretboard.new
+        question = FretQuestion.new 1, 2
+
+        assert_equal '^f', fretboard.answerTo(question)
+
+        fretboardWithFlats = FretboardWithFlats.new
+        assert_equal '_g', fretboardWithFlats.answerTo(question)
     end
 
     def test_unassigned_key_answer
         fretboard = Fretboard.new
         question = FretQuestion.new 1, 12
-        unassignedKeyAnswer = KeyboardAnswer.new ?b
+        unassignedKeyAnswer = KeyboardAnswer.new ?b, @use_flats
 
         assert !fretboard.isCorrect?(unassignedKeyAnswer, question)
     end
@@ -70,9 +84,9 @@ class TestFretboarder < Test::Unit::TestCase
         fretboard = Fretboard.new
 
         old_question = FretQuestion.new 6, 0
-        right = KeyboardAnswer.new ?d
-        slow = SlowKeyboardAnswer.new ?d
-        wrong = KeyboardAnswer.new ?f
+        right = KeyboardAnswer.new ?d, @use_flats
+        slow = SlowKeyboardAnswer.new ?d, @use_flats
+        wrong = KeyboardAnswer.new ?f, @use_flats
 
         fretboard.gradeAnswer! right, old_question
         assert_equal({[6, 0] => ["E,", :green]}, fretboard.displayData)
