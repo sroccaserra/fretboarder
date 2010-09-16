@@ -49,6 +49,14 @@ class TestFretboarder < Test::Unit::TestCase
         assert !fretboard.isCorrect?(KeyboardAnswer.new(?f), FretQuestion.new(1, 2))
     end
 
+    def test_unassigned_key_answer
+        fretboard = Fretboard.new
+        question = FretQuestion.new 1, 12
+        unassignedKeyAnswer = KeyboardAnswer.new ?b
+
+        assert !fretboard.isCorrect?(unassignedKeyAnswer, question)
+    end
+
     def test_fretboard_display_data_with_question
         fretboard = Fretboard.new
         assert_equal({}, fretboard.displayData)
