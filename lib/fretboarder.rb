@@ -8,22 +8,6 @@ require 'optparse'
 require 'ostruct'
 require 'ncurses'
 
-$NOTES = [["e", "f", "^f", "g", "^g", "a", "^a", "b", "c'", "^c'", "d'", "^d'", "e'"],
-          ["B", "c", "^c", "d", "^d", "e", "f", "^f", "g", "^g", "a", "^a", "b"],
-          ["G", "^G", "A", "^A", "B", "c", "^c", "d", "^d", "e", "f", "^f", "g"],
-          ["D", "^D", "E", "F", "^F", "G", "^G", "A", "^A", "B", "c", "^c", "d"],
-          ["A,", "^A,", "B", "C", "^C", "D", "^D", "E", "F", "^F", "G", "^G", "A"],
-          ["E,", "F,", "^F,", "G,", "^G,", "A,", "^A,", "B,", "C", "^C", "D", "^D", "E"]]
-
-$FLAT_NOTES = [["e", "f", "_g", "g", "_a", "a", "_b", "b", "c'", "_d'", "d'", "_e'", "e'"],
-               ["B", "c", "_d", "d", "_e", "e", "f", "_g", "g", "_a", "a", "_b", "b"],
-               ["G", "_A", "A", "_B", "B", "c", "_d", "d", "_e", "e", "f", "_g", "g"],
-               ["D", "_E", "E", "F", "_G", "G", "_A", "A", "_B", "B", "c", "_d", "d"],
-               ["A,", "_B,", "B", "C", "_D", "D", "_E", "E", "F", "_G", "G", "_A", "A"],
-               ["E,", "F,", "_G,", "G,", "_A,", "A,", "_B,", "B,", "C", "_D", "D", "_E", "E"]]
-
-$NB_FRETS = $NOTES[0].size - 1
-
 class FretQuestion
     attr_reader :stringNumber, :fretNumber
     def initialize stringNumber, fretNumber
@@ -89,13 +73,22 @@ end
 class Fretboard
     attr_reader :displayData
 
+    def self.notes
+        [["e", "f", "^f", "g", "^g", "a", "^a", "b", "c'", "^c'", "d'", "^d'", "e'"],
+         ["B", "c", "^c", "d", "^d", "e", "f", "^f", "g", "^g", "a", "^a", "b"],
+         ["G", "^G", "A", "^A", "B", "c", "^c", "d", "^d", "e", "f", "^f", "g"],
+         ["D", "^D", "E", "F", "^F", "G", "^G", "A", "^A", "B", "c", "^c", "d"],
+         ["A,", "^A,", "B", "C", "^C", "D", "^D", "E", "F", "^F", "G", "^G", "A"],
+         ["E,", "F,", "^F,", "G,", "^G,", "A,", "^A,", "B,", "C", "^C", "D", "^D", "E"]]
+    end
+
     def initialize
         @displayData = {}
         @fretWidth = 5
     end
 
     def notes
-        $NOTES
+        Fretboard.notes
     end
 
     def nbStrings
@@ -106,8 +99,8 @@ class Fretboard
         rand(nbStrings) + 1
     end
 
-    def nbFrets
-        $NB_FRETS
+    def self.nbFrets
+        notes[0].size - 1
     end
 
     def answerTo question
@@ -166,10 +159,10 @@ class Fretboard
 
     def draw y, window, colorIds
         offset = y
-        $NOTES.each_index do |i|
+        notes.each_index do |i|
             stringNumber = i + 1
             y = stringNumber + offset
-            $NOTES[i].each_index do |fretNumber|
+            notes[i].each_index do |fretNumber|
                 x = (fretStart fretNumber)
                 emptyFret = fretNumber == 0 ? '-----||' : '-----|'
                 window.mvaddstr y, x, emptyFret
@@ -190,8 +183,17 @@ class Fretboard
 end
 
 class FretboardWithFlats < Fretboard
+    def self.notes
+        [["e", "f", "_g", "g", "_a", "a", "_b", "b", "c'", "_d'", "d'", "_e'", "e'"],
+         ["B", "c", "_d", "d", "_e", "e", "f", "_g", "g", "_a", "a", "_b", "b"],
+         ["G", "_A", "A", "_B", "B", "c", "_d", "d", "_e", "e", "f", "_g", "g"],
+         ["D", "_E", "E", "F", "_G", "G", "_A", "A", "_B", "B", "c", "_d", "d"],
+         ["A,", "_B,", "B", "C", "_D", "D", "_E", "E", "F", "_G", "G", "_A", "A"],
+         ["E,", "F,", "_G,", "G,", "_A,", "A,", "_B,", "B,", "C", "_D", "D", "_E", "E"]]
+    end
+
     def notes
-        $FLAT_NOTES
+        FretboardWithFlats.notes
     end
 end
 
@@ -291,9 +293,9 @@ end
 def display_map settings
     window = Ncurses.stdscr
     fretboard = build_fretboard settings
-    $NOTES.each_index do |i|
+    fretboard.notes.each_index do |i|
         stringNumber = i + 1
-        $NOTES[i].each_index do |fretNumber|
+        fretboard.notes[i].each_index do |fretNumber|
             question = FretQuestion.new(stringNumber, fretNumber)
             note = fretboard.answerTo question
             isNatural = /^[a-z]/i.match note
@@ -315,7 +317,7 @@ if __FILE__ == $0
     {
         :period => 3,
         :start => 0,
-        :end => $NB_FRETS,
+        :end => Fretboard.nbFrets,
         :use_flats => false,
         :display_map => false
     }
