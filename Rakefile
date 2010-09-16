@@ -1,5 +1,5 @@
 task :default do
-    ruby %{-Ilib -Itest 'test/unit/fretboarder_test.rb'}
+    ruby %{-Isrc -Itest 'test/unit/fretboarder_test.rb'}
 end
 
 task :pull do
