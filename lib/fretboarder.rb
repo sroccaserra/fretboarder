@@ -312,72 +312,10 @@ def display_map settings
     Ncurses.getch
 end
 
-def read_options argv, default_settings
-    (OpenStruct.new default_settings).tap do |settings|
-        option_parser = OptionParser.new do |opts|
-            opts.banner = """Usage: #{__FILE__} [options]
-Note: see http://abcnotation.com about note notations.
-
-"""
-            opts.on("-p", "--period [TIME]", "Period in seconds between each question (default: #{settings.period})") do |p|
-                settings.period = Float(p)
-            end
-            opts.on("-s", "--start [FRET]", "Starting fret for questions (default: #{settings.start})") do |s|
-                settings.start = Integer(s)
-            end
-            opts.on("-e", "--end [FRET]", "Ending fret for questions (default: #{settings.end})") do |e|
-                settings.end = Integer(e)
-            end
-            opts.on("-b", "--use-flats", "Use flats (default: use sharps)") do |b|
-                settings.use_flats = b
-            end
-            opts.on("-m", "--display-map", "Shows a fretboard map and exits") do |m|
-                settings.display_map = m
-            end
-            opts.on("-a", "--auto", "In this mode inputs are ignored: the answer periodically shows up with another question.") do |a|
-                settings.auto = a
-            end
-
-            opts.on_tail("-h", "--help", "Show this message and exits") do
-                puts opts
-                exit
-            end
-        end
-        option_parser.parse!(ARGV)
-    end
-end
-
-if __FILE__ == $0
-    default_settings =
-        {
-        :period => 3,
-        :start => 0,
-        :end => Fretboard.nbFrets,
-        :use_flats => false,
-        :display_map => false
-    }
-
-    settings = read_options ARGV, default_settings
-
-    begin
+class Screen
+    def init colorIds
         Ncurses.initscr
         Ncurses.start_color
-
-        colorIds = {
-            :origin => 0,
-            :blue => 1,
-            :green => 2,
-            :yellow => 3,
-            :red => 4,
-        }
-        bg = Ncurses::COLOR_BLACK
-        Ncurses.init_pair(colorIds[:blue], Ncurses::COLOR_CYAN, bg)
-        Ncurses.init_pair(colorIds[:green], Ncurses::COLOR_GREEN, bg)
-        Ncurses.init_pair(colorIds[:yellow], Ncurses::COLOR_YELLOW, bg)
-        Ncurses.init_pair(colorIds[:red], Ncurses::COLOR_RED, bg)
-
-        settings.colorIds = colorIds
-
         # if (Ncurses.has_colors?)
         #     bg = Ncurses::COLOR_BLACK
         #     Ncurses.start_color
@@ -395,6 +333,80 @@ if __FILE__ == $0
         Ncurses.curs_set 0
         Ncurses.stdscr.keypad true
         Ncurses.raw
+
+        init_colors colorIds
+    end
+
+    def init_colors colorIds
+        bg = Ncurses::COLOR_BLACK
+        Ncurses.init_pair(colorIds[:blue], Ncurses::COLOR_CYAN, bg)
+        Ncurses.init_pair(colorIds[:green], Ncurses::COLOR_GREEN, bg)
+        Ncurses.init_pair(colorIds[:yellow], Ncurses::COLOR_YELLOW, bg)
+        Ncurses.init_pair(colorIds[:red], Ncurses::COLOR_RED, bg)
+    end
+
+    def close
+        Ncurses.curs_set 1
+        Ncurses.endwin
+    end
+end
+
+if __FILE__ == $0
+    def read_options argv, default_settings
+        (OpenStruct.new default_settings).tap do |settings|
+            option_parser = OptionParser.new do |opts|
+                opts.banner = """Usage: #{__FILE__} [options]
+Note: see http://abcnotation.com about note notations.
+
+"""
+                opts.on("-p", "--period [TIME]", "Period in seconds between each question (default: #{settings.period})") do |p|
+                    settings.period = Float(p)
+                end
+                opts.on("-s", "--start [FRET]", "Starting fret for questions (default: #{settings.start})") do |s|
+                    settings.start = Integer(s)
+                end
+                opts.on("-e", "--end [FRET]", "Ending fret for questions (default: #{settings.end})") do |e|
+                    settings.end = Integer(e)
+                end
+                opts.on("-b", "--use-flats", "Use flats (default: use sharps)") do |b|
+                    settings.use_flats = b
+                end
+                opts.on("-m", "--display-map", "Shows a fretboard map and exits") do |m|
+                    settings.display_map = m
+                end
+                opts.on("-a", "--auto", "In this mode inputs are ignored: the answer periodically shows up with another question.") do |a|
+                    settings.auto = a
+                end
+
+                opts.on_tail("-h", "--help", "Show this message and exits") do
+                    puts opts
+                    exit
+                end
+            end
+            option_parser.parse!(ARGV)
+        end
+    end
+
+    default_settings = {
+        :period => 3,
+        :start => 0,
+        :end => Fretboard.nbFrets,
+        :use_flats => false,
+        :display_map => false
+    }
+
+    settings = read_options ARGV, default_settings
+    settings.colorIds = {
+        :origin => 0,
+        :blue => 1,
+        :green => 2,
+        :yellow => 3,
+        :red => 4,
+    }
+
+    screen = Screen.new
+    begin
+        screen.init settings.colorIds
         if settings.display_map
             display_map settings
         elsif settings.auto
@@ -403,7 +415,6 @@ if __FILE__ == $0
             quizz settings
         end
     ensure
-        Ncurses.curs_set 1
-        Ncurses.endwin
+        screen.close
     end
 end
