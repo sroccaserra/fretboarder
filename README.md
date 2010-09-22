@@ -24,7 +24,7 @@ Usage
 
 If you have the `RUBYOPT` environment variable set with `-rubygems`, or if you allready installed ncurses Ruby bindings outside gem, just start the script:
 
-    > src/fretboarder.rb [options]
+    > lib/fretboarder.rb [options]
 
 Else, you can start it as:
 
